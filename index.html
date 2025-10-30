@@ -1,0 +1,2610 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quản lý danh mục đầu tư</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="logo.png" />
+    <!-- Tải Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tải icon (Lucide) -->
+    <script src="https://unpkg.com/lucide@0.378.0/dist/umd/lucide.min.js"></script>
+    <!-- Tải Chart.js (Mới) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MỚI: Tải SheetJS (Excel) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- Cấu hình font Inter -->
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #0f172a; /* Màu nền slate-900 */
+        /* MỚI: Thêm background gradient tinh tế */
+        background-image: radial-gradient(circle at top, #1e293b, #0f172a 40%);
+      }
+
+      /* Ẩn tab content mặc định */
+      .tab-content {
+        display: none;
+      }
+
+      /* Hiển thị tab content được active */
+      .tab-content.active {
+        display: block;
+      }
+
+      /* Styling cho tab active */
+      .tab-button.active {
+        background-color: #1e293b; /* Màu slate-800 */
+        color: #60a5fa; /* Màu blue-400 */
+        border-top-left-radius: 0.5rem;
+        border-top-right-radius: 0.5rem;
+        border-bottom: none;
+        border-color: #334155; /* Màu slate-700 */
+      }
+
+      /* Loading overlay */
+      #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(15, 23, 42, 0.8); /* Màu slate-900/80 */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border-left-color: #3b82f6; /* Màu blue-500 */
+        animation: spin 1s ease infinite;
+      }
+
+      /* Custom modal */
+      #message-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6); /* Đen mờ */
+        display: none; /* Ẩn mặc định */
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+      }
+      /* SỬA LỖI CSS: Thêm dấu } bị thiếu */
+      #message-modal-content {
+        background-color: #1e293b; /* Màu slate-800 */
+        border: 1px solid #334155; /* Màu slate-700 */
+        padding: 2rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+          0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        max-width: 90%;
+        width: 400px;
+        text-align: center;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+
+  <body class="bg-slate-900 text-gray-300">
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+      <div class="spinner"></div>
+      <p class="text-gray-200">Đang tải và xác thực dữ liệu...</p>
+    </div>
+
+    <!-- Message Modal -->
+    <div id="message-modal">
+      <div id="message-modal-content">
+        <p id="message-modal-text" class="mb-4 text-gray-300"></p>
+        <button
+          id="message-modal-close"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          Đã hiểu
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+      <!-- Header -->
+      <header class="mb-6 text-center">
+        <!-- Logo -->
+        <div class="flex justify-center items-center mb-4">
+          <div
+            class="rounded-full border-4 border-blue-400 p-2 bg-slate-800 shadow-lg"
+          >
+            <img
+              src="logo.png"
+              alt="Logo Quỹ Mô phỏng"
+              class="h-16 w-16 rounded-full object-cover"
+            />
+          </div>
+        </div>
+        <h1
+          class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 pb-2"
+        >
+          Quản lý danh mục đầu tư tài sản số
+        </h1>
+        <p class="text-gray-400">Quản lý tập trung tài sản số của bạn.</p>
+      </header>
+
+      <!-- Team ID Input Section -->
+      <div
+        id="team-section"
+        class="bg-slate-800 border border-slate-700 p-6 rounded-lg shadow-md mb-6 max-w-2xl mx-auto"
+      >
+        <label
+          for="team-id-input"
+          class="block text-sm font-medium text-gray-300 mb-2"
+          >Nhập Tên Nhóm (hoặc ID Nhóm):</label
+        >
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            id="team-id-input"
+            placeholder="Ví dụ: Nhom2-TC24"
+            class="flex-grow px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <button
+            id="join-team-btn"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-colors"
+          >
+            Tải/Tạo Không gian làm việc
+          </button>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">
+          Sử dụng cùng một tên để chia sẻ dữ liệu với các thành viên trong nhóm.
+        </p>
+      </div>
+
+      <!-- Main Dashboard (Hidden until team is joined) -->
+      <main id="main-dashboard" class="hidden">
+        <!-- Team Info -->
+        <div
+          class="mb-6 p-4 bg-slate-800 border border-slate-700 rounded-lg shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-4"
+        >
+          <div>
+            <h2 class="text-xl font-semibold text-blue-400">
+              Không gian làm việc:
+              <span id="team-id-display" class="font-bold text-white"></span>
+            </h2>
+            <p class="text-sm text-gray-400">
+              Mã người dùng của bạn:
+              <code id="user-id-display" class_name="text-xs">...</code> (Dùng
+              để xác thực)
+            </p>
+          </div>
+          <!-- MỚI: Nút Xuất Excel -->
+          <button
+            id="export-excel-btn"
+            class="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium transition-colors"
+          >
+            <i data-lucide="file-spreadsheet"></i>
+            Xuất Báo cáo Excel
+          </button>
+        </div>
+
+        <!-- Tab Navigation -->
+        <nav class="flex flex-wrap border-b border-slate-700 mb-6">
+          <button
+            class="tab-button flex items-center gap-2 py-3 px-4 border-b-2 border-transparent text-gray-400 hover:text-white transition-colors"
+            data-tab="tab-design"
+          >
+            <i data-lucide="clipboard-list"></i>
+            <span>1. Thiết kế Quỹ</span>
+          </button>
+          <button
+            class="tab-button flex items-center gap-2 py-3 px-4 border-b-2 border-transparent text-gray-400 hover:text-white transition-colors"
+            data-tab="tab-nav"
+          >
+            <i data-lucide="pie-chart"></i>
+            <span>2. Danh mục & NAV</span>
+          </button>
+          <button
+            class="tab-button flex items-center gap-2 py-3 px-4 border-b-2 border-transparent text-gray-400 hover:text-white transition-colors"
+            data-tab="tab-transactions"
+          >
+            <i data-lucide="book-copy"></i>
+            <span>3. Nhật ký Giao dịch</span>
+          </button>
+          <button
+            class="tab-button flex items-center gap-2 py-3 px-4 border-b-2 border-transparent text-gray-400 hover:text-white transition-colors"
+            data-tab="tab-risk"
+          >
+            <i data-lucide="alert-triangle"></i>
+            <span>4. Quản trị Rủi ro</span>
+          </button>
+          <button
+            class="tab-button flex items-center gap-2 py-3 px-4 border-b-2 border-transparent text-gray-400 hover:text-white transition-colors"
+            data-tab="tab-documents"
+          >
+            <i data-lucide="folder-open"></i>
+            <span>5. Hồ sơ & Tài liệu</span>
+          </button>
+        </nav>
+
+        <!-- Tab Content -->
+
+        <!-- Tab 1: Fund Design -->
+        <div id="tab-design" class="tab-content active">
+          <div
+            class="bg-slate-800 border border-slate-700 p-6 rounded-lg shadow-md"
+          >
+            <h3 class="text-xl font-semibold mb-4 text-white">
+              Thiết kế Quỹ và Chiến lược
+            </h3>
+            <form id="form-fund-design" class="space-y-4">
+              <div>
+                <label
+                  for="fund-name"
+                  class="block text-sm font-medium text-gray-300"
+                  >Tên quỹ</label
+                >
+                <input
+                  type="text"
+                  id="fund-name"
+                  class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label
+                  for="fund-objective"
+                  class="block text-sm font-medium text-gray-300"
+                  >Mục tiêu (NAV, kiểm soát lỗ...)</label
+                >
+                <textarea
+                  id="fund-objective"
+                  rows="3"
+                  class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                ></textarea>
+              </div>
+              <div>
+                <label
+                  for="fund-strategy"
+                  class="block text-sm font-medium text-gray-300"
+                  >Chiến lược (Ổn định, Cân bằng...)</label
+                >
+                <textarea
+                  id="fund-strategy"
+                  rows="3"
+                  class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                ></textarea>
+              </div>
+              <div>
+                <label
+                  for="fund-assets"
+                  class="block text-sm font-medium text-gray-300"
+                  >Tài sản được phép đầu tư (BTC, ETH, RWA...)</label
+                >
+                <input
+                  type="text"
+                  id="fund-assets"
+                  class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label
+                  for="fund-team"
+                  class="block text-sm font-medium text-gray-300"
+                  >Cơ cấu nhóm (Quản lý, Kế toán...)</label
+                >
+                <textarea
+                  id="fund-team"
+                  rows="4"
+                  class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                ></textarea>
+              </div>
+              <button
+                type="submit"
+                class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium transition-colors"
+              >
+                Lưu Thông tin Quỹ
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Tab 2: Portfolio & NAV (NÂNG CẤP) -->
+        <div id="tab-nav" class="tab-content">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Cột 1: Quản lý Danh mục -->
+            <div
+              class="lg:col-span-1 bg-slate-800 border border-slate-700 p-6 rounded-lg shadow-md space-y-6"
+            >
+              <!-- Form Thêm/Cập nhật Tài sản -->
+              <div>
+                <h3 class="text-xl font-semibold mb-4 text-white">
+                  Quản lý Danh mục
+                </h3>
+                <form id="form-portfolio-asset" class="space-y-4">
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label
+                        for="asset-token"
+                        class="block text-sm font-medium text-gray-300"
+                        >Tên Token</label
+                      >
+                      <input
+                        type="text"
+                        id="asset-token"
+                        placeholder="BTC, ETH..."
+                        class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label
+                        for="asset-amount"
+                        class="block text-sm font-medium text-gray-300"
+                        >Số lượng</label
+                      >
+                      <input
+                        type="number"
+                        step="any"
+                        id="asset-amount"
+                        placeholder="0.5"
+                        class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      for="asset-coingecko-id"
+                      class="block text-sm font-medium text-gray-300"
+                      >CoinGecko ID</label
+                    >
+                    <input
+                      type="text"
+                      id="asset-coingecko-id"
+                      placeholder="bitcoin, ethereum..."
+                      class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p class="text-xs text-gray-500 mt-1">
+                      Tìm ID trên CoinGecko. Bỏ trống nếu nhập giá tùy chỉnh.
+                    </p>
+                  </div>
+                  <div>
+                    <label
+                      for="asset-custom-price"
+                      class="block text-sm font-medium text-gray-300"
+                      >Giá tùy chỉnh (VND)</label
+                    >
+                    <input
+                      type="number"
+                      step="any"
+                      id="asset-custom-price"
+                      placeholder="1 (cho VNDC)"
+                      class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p class="text-xs text-gray-500 mt-1">
+                      Dùng cho Stablecoin (nhập 1) hoặc RWA.
+                    </p>
+                  </div>
+                  <button
+                    type="submit"
+                    class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-colors"
+                  >
+                    Thêm/Cập nhật Tài sản
+                  </button>
+                </form>
+              </div>
+
+              <!-- Bảng Danh mục đang nắm giữ -->
+              <div>
+                <h3 class="text-lg font-semibold mb-2 text-white">
+                  Danh mục đang nắm giữ
+                </h3>
+                <div class="overflow-x-auto border border-slate-700 rounded-lg">
+                  <table class="min-w-full divide-y divide-slate-700">
+                    <thead class="bg-slate-700">
+                      <tr>
+                        <th
+                          class="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase"
+                        >
+                          Tài sản
+                        </th>
+                        <th
+                          class="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase"
+                        >
+                          Số lượng
+                        </th>
+                        <th
+                          class="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase"
+                        >
+                          Giá (VND)
+                        </th>
+                        <th
+                          class="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase"
+                        >
+                          Tổng
+                        </th>
+                        <th
+                          class="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase"
+                        >
+                          Xóa
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody
+                      id="portfolio-holdings-table"
+                      class="bg-slate-800 divide-y divide-slate-700"
+                    >
+                      <tr>
+                        <td colspan="5" class="p-4 text-center text-gray-500">
+                          Chưa có tài sản.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cột 2: NAV & Thống kê -->
+            <div
+              class="lg:col-span-2 bg-slate-800 border border-slate-700 p-6 rounded-lg shadow-md space-y-6"
+            >
+              <!-- Tổng quan NAV -->
+              <div>
+                <h3 class="text-xl font-semibold mb-4 text-white">
+                  Tổng quan NAV (Tự động)
+                </h3>
+                <div
+                  class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                >
+                  <div
+                    class="p-4 bg-slate-900 rounded-lg border border-slate-700 flex-grow"
+                  >
+                    <p class="text-sm font-medium text-blue-400">
+                      Tổng NAV (Tự động tính)
+                    </p>
+                    <p
+                      id="total-nav-display"
+                      class="text-3xl font-bold text-blue-400"
+                    >
+                      0 VND
+                    </p>
+                    <p id="last-price-update" class="text-xs text-gray-500">
+                      Đang chờ cập nhật giá...
+                    </p>
+                  </div>
+                  <div class="flex flex-col gap-2">
+                    <!-- MỚI: Bọc 2 nút lại -->
+                    <div class="w-full">
+                      <!-- MỚI: Thêm ô nhập Phí/Nợ -->
+                      <label
+                        for="snapshot-liabilities"
+                        class="block text-xs font-medium text-gray-400"
+                        >Tổng Nợ / Phí (VND)</label
+                      >
+                      <input
+                        type="number"
+                        step="any"
+                        id="snapshot-liabilities"
+                        placeholder="Phí quản lý..."
+                        class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <button
+                      id="save-nav-snapshot-btn"
+                      class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium whitespace-nowrap transition-colors"
+                    >
+                      <i
+                        data-lucide="camera"
+                        class="inline-block w-4 h-4 mr-1"
+                      ></i>
+                      Lưu Snapshot NAV
+                    </button>
+                  </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">
+                  Nhấn "Lưu Snapshot" để ghi lại NAV hiện tại vào Lịch sử bên
+                  dưới (ví dụ: cuối mỗi ngày).
+                </p>
+              </div>
+
+              <!-- Thống kê Phân bổ -->
+              <div>
+                <h3 class="text-xl font-semibold mb-4 text-white">
+                  Thống kê Phân bổ
+                </h3>
+                <div class="max-w-md mx-auto">
+                  <canvas id="portfolio-pie-chart"></canvas>
+                </div>
+              </div>
+
+              <!-- Lịch sử NAV & Hiệu suất -->
+              <div>
+                <h3 class="text-xl font-semibold mb-4 text-white">
+                  Lịch sử NAV và Hiệu suất
+                </h3>
+                <!-- Performance Metrics -->
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                  <div
+                    class="p-4 bg-slate-900 rounded-lg border border-slate-700"
+                  >
+                    <p class="text-sm font-medium text-gray-400">NAV Ban đầu</p>
+                    <p
+                      id="perf-initial-nav"
+                      class="text-2xl font-bold text-white"
+                    >
+                      0
+                    </p>
+                  </div>
+                  <div
+                    class="p-4 bg-slate-900 rounded-lg border border-slate-700"
+                  >
+                    <p class="text-sm font-medium text-gray-400">
+                      NAV Hiện tại (Mới nhất)
+                    </p>
+                    <p
+                      id="perf-current-nav"
+                      class="text-2xl font-bold text-blue-400"
+                    >
+                      0
+                    </p>
+                  </div>
+                  <div
+                    class="p-4 bg-slate-900 rounded-lg border border-slate-700 col-span-2 md:col-span-1"
+                  >
+                    <p class="text-sm font-medium text-gray-400">
+                      Hiệu suất (%)
+                    </p>
+                    <p
+                      id="perf-percentage"
+                      class="text-2xl font-bold text-green-600"
+                    >
+                      0.00%
+                    </p>
+                  </div>
+                </div>
+
+                <!-- MỚI: Biểu đồ đường Lịch sử NAV -->
+                <div class="mb-6">
+                  <h4 class="text-lg font-semibold mb-3 text-white">
+                    Biểu đồ Lịch sử NAV
+                  </h4>
+                  <div
+                    class="bg-slate-900 p-4 rounded-lg border border-slate-700"
+                  >
+                    <canvas id="nav-line-chart"></canvas>
+                  </div>
+                </div>
+
+                <!-- NAV Table -->
+                <div class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-slate-700">
+                    <thead class="bg-slate-700">
+                      <tr>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"
+                        >
+                          Ngày Snapshot
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"
+                        >
+                          Tổng Tài sản
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"
+                        >
+                          Tổng Nợ (Nhập tay)
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"
+                        >
+                          NAV
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"
+                        >
+                          Xóa
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody
+                      id="nav-history-table"
+                      class="bg-slate-800 divide-y divide-slate-700"
+                    >
+                      <tr>
+                        <td
+                          colspan="5"
+                          class="px-6 py-4 text-center text-gray-500"
+                        >
+                          Chưa có dữ liệu NAV.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Transaction Log -->
+        <div id="tab-transactions" class="tab-content">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Transaction Input Form -->
+            <div
+              class="lg:col-span-1 bg-slate-800 border border-slate-700 p-6 rounded-lg shadow-md"
+            >
+              <h3 class="text-xl font-semibold mb-4 text-white">
+                Thêm Giao dịch
+              </h3>
+              <!-- Form giao dịch đã được sửa lại -->
+              <form id="form-transaction-log" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      for="tx-type"
+                      class="block text-sm font-medium text-gray-300"
+                      >Loại</label
+                    >
+                    <select
+                      id="tx-type"
+                      class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option>Mua (Buy)</option>
+                      <option>Bán (Sell)</option>
+                      <option>Staking</option>
+                      <option>Unstake</option>
+                      <option>Nạp tiền (Deposit)</option>
+                      <option>Rút tiền (Withdraw)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      for="tx-amount"
+                      class="block text-sm font-medium text-gray-300"
+                      >Số lượng</label
+                    >
+                    <input
+                      type="number"
+                      step="any"
+                      id="tx-amount"
+                      placeholder="1.5"
+                      class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label
+                    for="tx-asset"
+                    class="block text-sm font-medium text-gray-300"
+                    >Tài sản (Token)</label
+                  >
+                  <input
+                    type="text"
+                    id="tx-asset"
+                    placeholder="BTC, ETH, ONUS..."
+                    class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    for="tx-coingecko-id"
+                    class="block text-sm font-medium text-gray-300"
+                    >CoinGecko ID (Tự động lấy giá)</label
+                  >
+                  <input
+                    type="text"
+                    id="tx-coingecko-id"
+                    placeholder="bitcoin, onus..."
+                    class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label
+                    for="tx-price"
+                    class="block text-sm font-medium text-gray-300"
+                    >Giá (VND) (Nếu không dùng Coingecko ID)</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="tx-price"
+                    placeholder="Giá tùy chỉnh cho RWA, VNDC..."
+                    class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <!-- MỚI: Thêm ô Phí Giao dịch -->
+                <div>
+                  <label
+                    for="tx-fee"
+                    class="block text-sm font-medium text-gray-300"
+                    >Phí Giao dịch (VND)</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="tx-fee"
+                    placeholder="Ví dụ: 15000"
+                    class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label
+                    for="tx-notes"
+                    class="block text-sm font-medium text-gray-300"
+                    >Ghi chú (Link ảnh chụp màn hình...)</label
+                  >
+                  <input
+                    type="text"
+                    id="tx-notes"
+                    placeholder="Link Google Drive, Imgur..."
+                    class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="tx-auto-update"
+                    class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label
+                    for="tx-auto-update"
+                    class="text-sm font-medium text-gray-300"
+                    >Tự động cập nhật "Danh mục & NAV" (Tab 2)</label
+                  >
+                </div>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="submit"
+                    id="tx-submit-btn"
+                    class="flex-grow w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-colors"
+                  >
+                    Ghi lại Giao dịch
+                  </button>
+                  <button
+                    type="button"
+                    id="tx-cancel-btn"
+                    class="hidden w-full sm:w-auto px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400 font-medium transition-colors"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </form>
+              <p class="text-xs text-gray-500 mt-4">
+                Lưu ý: Nếu không tick "Tự động cập nhật", bạn cần tự điều chỉnh
+                số lượng tài sản ở Tab 2 sau khi Mua/Bán.
+              </p>
+            </div>
+            <!-- Transaction History -->
+            <div
+              class="lg:col-span-2 bg-slate-800 border border-slate-700 p-6 rounded-lg shadow-md"
+            >
+              <h3 class="text-xl font-semibold mb-4 text-white">
+                Nhật ký Giao dịch
+              </h3>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-700">
+                  <thead class="bg-slate-700">
+                    <tr>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Thời gian
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Loại
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Tài sản
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Số lượng
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Giá (VND)
+                      </th>
+                      <!-- MỚI: Thêm cột Phí -->
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Phí (VND)
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Ghi chú
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Hành động
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    id="transaction-log-table"
+                    class="bg-slate-800 divide-y divide-slate-700"
+                  >
+                    <tr>
+                      <!-- Cập nhật colspan từ 7 -> 8 -->
+                      <td
+                        colspan="8"
+                        class="px-6 py-4 text-center text-gray-500"
+                      >
+                        Chưa có giao dịch nào.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Risk Management -->
+        <div id="tab-risk" class="tab-content">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Risk Input Form -->
+            <div
+              class="lg:col-span-1 bg-slate-800 border border-slate-700 p-6 rounded-lg shadow-md"
+            >
+              <h3 class="text-xl font-semibold mb-4 text-white">
+                Ghi nhận Tình huống Rủi ro
+              </h3>
+              <form id="form-risk-log" class="space-y-4">
+                <div>
+                  <label
+                    for="risk-date"
+                    class="block text-sm font-medium text-gray-300"
+                    >Ngày</label
+                  >
+                  <input
+                    type="date"
+                    id="risk-date"
+                    class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    for="risk-scenario"
+                    class="block text-sm font-medium text-gray-300"
+                    >Tình huống mô phỏng (Token giảm >10%,...) Ghi nhận Tình
+                    huống Rủi ro</label
+                  >
+                  <input
+                    type="text"
+                    id="risk-scenario"
+                    placeholder="Token X giảm 15%"
+                    class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    for="risk-response"
+                    class="block text-sm font-medium text-gray-300"
+                    >Phản ứng/Giải pháp của nhóm</label
+                  >
+                  <textarea
+                    id="risk-response"
+                    rows="4"
+                    class="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Phân tích và quyết định cắt lỗ tại giá Y..."
+                  ></textarea>
+                </div>
+                <button
+                  type="submit"
+                  class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-colors"
+                >
+                  Ghi lại Tình huống
+                </button>
+              </form>
+            </div>
+            <!-- Risk Log History -->
+            <div
+              class="lg:col-span-2 bg-slate-800 border border-slate-700 p-6 rounded-lg shadow-md"
+            >
+              <h3 class="text-xl font-semibold mb-4 text-white">
+                Nhật ký Quản trị Rủi ro
+              </h3>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-700">
+                  <thead class="bg-slate-700">
+                    <tr>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Ngày
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Tình huống
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Phản ứng
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase"
+                      >
+                        Xóa
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    id="risk-log-table"
+                    class="bg-slate-800 divide-y divide-slate-700"
+                  >
+                    <tr>
+                      <td
+                        colspan="4"
+                        class="px-6 py-4 text-center text-gray-500"
+                      >
+                        Chưa ghi nhận rủi ro.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 5: Documents -->
+        <div id="tab-documents" class="tab-content">
+          <div
+            class="bg-slate-800 border border-slate-700 p-6 rounded-lg shadow-md"
+          >
+            <h3 class="text-xl font-semibold mb-4 text-white">
+              Hồ sơ Quỹ (Tài liệu nộp)
+            </h3>
+            <p class="text-sm text-gray-400 mb-4">
+              Lưu trữ nội dung các tài liệu bắt buộc tại đây. Dữ liệu tự động
+              lưu khi bạn gõ.
+            </p>
+            <form id="form-documents" class="space-y-6">
+              <div>
+                <label
+                  for="doc-contract"
+                  class="block text-sm font-medium text-gray-300"
+                  >1. Hợp đồng quản lý quỹ (Giả lập)</label
+                >
+                <textarea
+                  id="doc-contract"
+                  rows="8"
+                  class="doc-field mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Dán nội dung hợp đồng của nhóm vào đây..."
+                ></textarea>
+              </div>
+              <div>
+                <label
+                  for="doc-summary"
+                  class="block text-sm font-medium text-gray-300"
+                  >2. Báo cáo tổng hợp</label
+                >
+                <textarea
+                  id="doc-summary"
+                  rows="8"
+                  class="doc-field mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Mô tả quá trình đầu tư và kết quả NAV..."
+                ></textarea>
+              </div>
+              <div>
+                <label
+                  for="doc-risk-analysis"
+                  class="block text-sm font-medium text-gray-300"
+                  >3. Báo cáo phân tích rủi ro</label
+                >
+                <textarea
+                  id="doc-risk-analysis"
+                  rows="8"
+                  class="doc-field mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Các tình huống phát sinh và cách xử lý chi tiết..."
+                ></textarea>
+              </div>
+              <div>
+                <label
+                  for="doc-slides"
+                  class="block text-sm font-medium text-gray-300"
+                  >4. Link Slide trình bày</label
+                >
+                <input
+                  type="url"
+                  id="doc-slides"
+                  class="doc-field mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://docs.google.com/presentation/..."
+                />
+              </div>
+              <div>
+                <label
+                  for="doc-appendix"
+                  class="block text-sm font-medium text-gray-300"
+                  >5. Phụ lục (Link Google Sheet, ảnh chụp màn hình...)</label
+                >
+                <textarea
+                  id="doc-appendix"
+                  rows="5"
+                  class="doc-field mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Dán các link liên quan vào đây..."
+                ></textarea>
+              </div>
+            </form>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+      // Import Firebase modules
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-analytics.js";
+      import {
+        getAuth,
+        signInAnonymously,
+        signInWithCustomToken, // Giữ lại lỡ cần, nhưng sẽ không dùng
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+      import {
+        getFirestore,
+        doc,
+        getDoc,
+        getDocs, // Mới
+        setDoc,
+        updateDoc,
+        addDoc,
+        deleteDoc,
+        onSnapshot,
+        collection,
+        query,
+        Timestamp,
+      } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+      // --- GLOBAL VARIABLES ---
+      let db, auth, userId, appId, teamId;
+      let fundDetailsRef, fundDocumentsRef;
+      let navCollectionRef,
+        txCollectionRef,
+        riskCollectionRef,
+        portfolioCollectionRef; // Mới: portfolioCollectionRef
+
+      let fundDetailsUnsubscribe = null;
+      let fundDocumentsUnsubscribe = null;
+      let navUnsubscribe = null;
+      let txUnsubscribe = null;
+      let riskUnsubscribe = null;
+      let portfolioUnsubscribe = null; // Mới
+
+      let portfolioChart = null; // Mới: Biến giữ chart
+      let navLineChart = null; // MỚI: Biến giữ chart Lịch sử NAV
+      let currentPortfolio = []; // Mới: Biến giữ danh mục
+      let currentTotalNav = 0; // Mới: Biến giữ NAV
+      let editingTxId = null; // Mới: Giữ ID của giao dịch đang sửa
+
+      // --- DOM ELEMENTS ---
+      const loadingOverlay = document.getElementById("loading-overlay");
+      const teamSection = document.getElementById("team-section");
+      const teamIdInput = document.getElementById("team-id-input");
+      const joinTeamBtn = document.getElementById("join-team-btn");
+      const mainDashboard = document.getElementById("main-dashboard");
+      const teamIdDisplay = document.getElementById("team-id-display");
+      const userIdDisplay = document.getElementById("user-id-display");
+      const exportExcelBtn = document.getElementById("export-excel-btn"); // Mới
+
+      // Modal elements
+      const messageModal = document.getElementById("message-modal");
+      const messageModalText = document.getElementById("message-modal-text");
+      const messageModalClose = document.getElementById("message-modal-close");
+
+      // Form elements
+      const formFundDesign = document.getElementById("form-fund-design");
+      // const formNavLog = document.getElementById('form-nav-log'); // Cũ: Đã xóa
+      const formTxLog = document.getElementById("form-transaction-log");
+      const formRiskLog = document.getElementById("form-risk-log");
+      const formPortfolioAsset = document.getElementById(
+        "form-portfolio-asset"
+      ); // Mới
+      const txSubmitBtn = document.getElementById("tx-submit-btn"); // Mới
+      const txCancelBtn = document.getElementById("tx-cancel-btn"); // Mới
+
+      // Document fields
+      const docFields = document.querySelectorAll(".doc-field");
+
+      // Data display elements
+      const navHistoryTable = document.getElementById("nav-history-table");
+      const txLogTable = document.getElementById("transaction-log-table");
+      const riskLogTable = document.getElementById("risk-log-table");
+      const perfInitialNav = document.getElementById("perf-initial-nav");
+      const perfCurrentNav = document.getElementById("perf-current-nav");
+      const perfPercentage = document.getElementById("perf-percentage");
+
+      // Mới: NAV & Portfolio elements
+      const portfolioHoldingsTable = document.getElementById(
+        "portfolio-holdings-table"
+      );
+      const totalNavDisplay = document.getElementById("total-nav-display");
+      const lastPriceUpdate = document.getElementById("last-price-update");
+      const saveNavSnapshotBtn = document.getElementById(
+        "save-nav-snapshot-btn"
+      );
+      const portfolioPieChartCanvas = document
+        .getElementById("portfolio-pie-chart")
+        .getContext("2d");
+      const navLineChartCanvas = document
+        .getElementById("nav-line-chart")
+        .getContext("2d"); // MỚI
+
+      // --- UTILITY FUNCTIONS ---
+
+      // Function to show modal message
+      function showModal(message) {
+        messageModalText.textContent = message;
+        messageModal.style.display = "flex";
+      }
+
+      // Function to hide modal message
+      messageModalClose.addEventListener("click", () => {
+        messageModal.style.display = "none";
+      });
+
+      // Function to show loading
+      function showLoading(message) {
+        loadingOverlay.querySelector("p").textContent =
+          message || "Đang tải...";
+        loadingOverlay.style.display = "flex";
+      }
+
+      // Function to hide loading
+      function hideLoading() {
+        loadingOverlay.style.display = "none";
+      }
+
+      // Function to format currency (VND)
+      function formatCurrency(value) {
+        if (isNaN(value)) return "0 VND";
+        return new Intl.NumberFormat("vi-VN", {
+          style: "currency",
+          currency: "VND",
+          minimumFractionDigits: 0,
+        }).format(value);
+      }
+
+      // Function to format a Firestore Timestamp to "dd/mm/yyyy"
+      function formatDate(timestamp) {
+        if (!timestamp) return "N/A";
+        const date = timestamp.toDate();
+        return date.toLocaleDateString("vi-VN");
+      }
+
+      // Function to format a Firestore Timestamp to "dd/mm/yyyy HH:MM"
+      function formatDateTime(timestamp) {
+        if (!timestamp) return "N/A";
+        const date = timestamp.toDate();
+        return date.toLocaleString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      // Function to set today's date in date inputs
+      function setTodaysDate() {
+        // document.getElementById('nav-date').value = today; // Cũ: Đã xóa
+        const today = new Date().toISOString().split("T")[0];
+        document.getElementById("risk-date").value = today;
+
+        // Xóa: Không cần set 'tx-date' nữa vì đã bị loại bỏ
+        // const now = new Date();
+        // now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        // document.getElementById('tx-date').value = now.toISOString().slice(0, 16);
+      }
+
+      // MỚI: Function to reset the transaction form
+      function resetTxForm() {
+        formTxLog.reset(); // Resets all form fields
+        editingTxId = null; // Clear the editing state
+        txSubmitBtn.textContent = "Ghi lại Giao dịch"; // Reset button text
+        txCancelBtn.classList.add("hidden"); // Hide the cancel button
+      }
+
+      // MỚI: Function to handle editing a transaction
+      async function handleEditTransaction(id) {
+        try {
+          showLoading("Đang tải dữ liệu giao dịch...");
+          const txDocRef = doc(txCollectionRef, id);
+          const docSnap = await getDoc(txDocRef);
+
+          if (!docSnap.exists()) {
+            hideLoading();
+            showModal("Không tìm thấy giao dịch để sửa.");
+            return;
+          }
+
+          const data = docSnap.data();
+
+          // Populate the form
+          document.getElementById("tx-type").value = data.type || "Mua (Buy)";
+          document.getElementById("tx-asset").value = data.asset || "";
+          document.getElementById("tx-amount").value = data.amount || 0;
+          document.getElementById("tx-coingecko-id").value =
+            data.coingeckoId || "";
+          document.getElementById("tx-price").value = data.price || "";
+          document.getElementById("tx-fee").value = data.fee || ""; // MỚI
+          document.getElementById("tx-notes").value = data.notes || "";
+          document.getElementById("tx-auto-update").checked = false; // Luôn tắt auto-update khi edit
+
+          // Set editing state
+          editingTxId = id;
+          txSubmitBtn.textContent = "Cập nhật Giao dịch";
+          txCancelBtn.classList.remove("hidden");
+
+          // Cuộn lên form
+          formTxLog.scrollIntoView({ behavior: "smooth" });
+
+          hideLoading();
+        } catch (error) {
+          console.error("Lỗi tải giao dịch để sửa: ", error);
+          hideLoading();
+          showModal(`Lỗi: ${error.message}`);
+        }
+      }
+
+      // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
+      async function initializeFirebase() {
+        try {
+          // --- BẮT ĐẦU THAY ĐỔI ---
+          // Cấu hình Firebase của bạn (được cung cấp bởi bạn)
+          const firebaseConfig = {
+            apiKey: "AIzaSyBPAhga3Ex8yk0lmigZoN86vWt7eLkkXmo",
+            authDomain: "quanlyquymophong.firebaseapp.com",
+            projectId: "quanlyquymophong",
+            storageBucket: "quanlyquymophong.firebasestorage.app",
+            messagingSenderId: "302318341715",
+            appId: "1:302318341715:web:bea264a25c6fe91d2640a6",
+            measurementId: "G-7LXNQQ8JHZ",
+          };
+
+          // Đặt một appId mặc định để xây dựng đường dẫn Firestore
+          // (Trong Canvas, giá trị này được cung cấp tự động)
+          // Bạn có thể đổi giá trị này nếu muốn, miễn là nó nhất quán
+          appId = "default-case-study-app";
+          // --- KẾT THÚC THAY ĐỔI ---
+
+          // Initialize Firebase
+          const app = initializeApp(firebaseConfig);
+          const analytics = getAnalytics(app); // Thêm Analytics
+          db = getFirestore(app);
+          auth = getAuth(app);
+
+          // Set up auth state listener
+          onAuthStateChanged(auth, (user) => {
+            if (user) {
+              userId = user.uid;
+              userIdDisplay.textContent = userId;
+              // User is signed in, safe to enable team joining
+              joinTeamBtn.disabled = false;
+              joinTeamBtn.textContent = "Tải/Tạo Không gian làm việc";
+              hideLoading();
+            } else {
+              // User is signed out
+              userId = null;
+              userIdDisplay.textContent = "Chưa xác thực";
+            }
+          });
+
+          // Sign in
+          joinTeamBtn.disabled = true;
+          joinTeamBtn.textContent = "Đang xác thực...";
+          showLoading("Đang kết nối và xác thực...");
+
+          // --- BẮT ĐẦU THAY ĐỔI: Đăng nhập ẩn danh ---
+          // Luôn đăng nhập ẩn danh khi chạy độc lập
+          await signInAnonymously(auth);
+          // --- KẾT THÚC THAY ĐỔI ---
+
+          // Set default dates for forms
+          setTodaysDate();
+
+          // Mới: Thêm listener cho nút Hủy
+          txCancelBtn.addEventListener("click", resetTxForm);
+
+          // MỚI: Thêm listener cho nút Xuất Excel
+          exportExcelBtn.addEventListener("click", exportToExcel);
+
+          // MỚI: Cấu hình màu sắc cho Chart.js (Dark Mode)
+          Chart.defaults.color = "#e2e8f0"; // slate-200
+          Chart.defaults.borderColor = "#334155"; // slate-700
+        } catch (error) {
+          console.error("Lỗi khởi tạo Firebase:", error);
+          showModal(
+            `Lỗi khởi tạo: ${error.message}. Vui lòng kiểm tra kết nối và tải lại trang.`
+          );
+          hideLoading();
+        }
+      }
+
+      // --- DATA MANAGEMENT ---
+
+      // Function to join a team workspace
+      joinTeamBtn.addEventListener("click", () => {
+        const rawTeamId = teamIdInput.value.trim();
+        if (!rawTeamId) {
+          showModal("Vui lòng nhập Tên Nhóm.");
+          return;
+        }
+        if (!userId) {
+          showModal(
+            "Chưa xác thực người dùng. Vui lòng đợi hoặc tải lại trang."
+          );
+          return;
+        }
+
+        // Sanitize teamId to be a valid Firestore collection ID (no spaces, special chars)
+        teamId = rawTeamId.replace(/[^a-zA-Z0-9-]/g, "_");
+
+        teamIdDisplay.textContent = rawTeamId; // Show the user's readable name
+
+        // Hide team selection, show dashboard
+        teamSection.style.display = "none";
+        mainDashboard.style.display = "block";
+
+        // Activate first tab
+        switchTab("tab-design");
+
+        // Initialize Firestore references
+        initializeFirestoreRefs();
+
+        // Attach all listeners
+        attachAllListeners();
+      });
+
+      // Function to initialize Firestore references
+      function initializeFirestoreRefs() {
+        const basePath = `/artifacts/${appId}/public/data/${teamId}`;
+
+        fundDetailsRef = doc(db, `${basePath}/fundDetails`);
+        fundDocumentsRef = doc(db, `${basePath}/fundDocuments`);
+
+        // All logs are subcollections under a 'logs' document
+        navCollectionRef = collection(db, `${basePath}/logs/navLogs`);
+        txCollectionRef = collection(db, `${basePath}/logs/transactions`);
+        riskCollectionRef = collection(db, `${basePath}/logs/riskLogs`);
+        portfolioCollectionRef = collection(db, `${basePath}/logs/portfolio`); // Mới
+      }
+
+      // Function to detach all listeners
+      function detachAllListeners() {
+        if (fundDetailsUnsubscribe) fundDetailsUnsubscribe();
+        if (fundDocumentsUnsubscribe) fundDocumentsUnsubscribe();
+        if (navUnsubscribe) navUnsubscribe();
+        if (txUnsubscribe) txUnsubscribe();
+        if (riskUnsubscribe) riskUnsubscribe();
+        if (portfolioUnsubscribe) portfolioUnsubscribe(); // Mới
+      }
+
+      // Function to attach all listeners
+      function attachAllListeners() {
+        // 1. Fund Details Listener
+        fundDetailsUnsubscribe = onSnapshot(
+          fundDetailsRef,
+          (doc) => {
+            if (doc.exists()) {
+              const data = doc.data();
+              document.getElementById("fund-name").value = data.name || "";
+              document.getElementById("fund-objective").value =
+                data.objective || "";
+              document.getElementById("fund-strategy").value =
+                data.strategy || "";
+              document.getElementById("fund-assets").value = data.assets || "";
+              document.getElementById("fund-team").value = data.team || "";
+            }
+          },
+          (error) => console.error("Lỗi lắng nghe chi tiết quỹ: ", error)
+        );
+
+        // 2. Fund Documents Listener
+        fundDocumentsUnsubscribe = onSnapshot(
+          fundDocumentsRef,
+          (doc) => {
+            if (doc.exists()) {
+              const data = doc.data();
+              document.getElementById("doc-contract").value =
+                data.contract || "";
+              document.getElementById("doc-summary").value = data.summary || "";
+              document.getElementById("doc-risk-analysis").value =
+                data.riskAnalysis || "";
+              document.getElementById("doc-slides").value = data.slides || "";
+              document.getElementById("doc-appendix").value =
+                data.appendix || "";
+            }
+          },
+          (error) => console.error("Lỗi lắng nghe hồ sơ quỹ: ", error)
+        );
+
+        // 3. NAV Log Listener (KHÔNG ĐỔI)
+        // Vẫn lắng nghe 'navLogs' để vẽ lịch sử
+        const navQuery = query(navCollectionRef);
+        navUnsubscribe = onSnapshot(
+          navQuery,
+          (querySnapshot) => {
+            const navLogs = [];
+            querySnapshot.forEach((doc) => {
+              navLogs.push({ id: doc.id, ...doc.data() });
+            });
+            navLogs.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+            renderNavHistoryTable(navLogs); // Đổi tên hàm
+            calculatePerformance(navLogs);
+            renderNavLineChart(navLogs); // MỚI
+          },
+          (error) => console.error("Lỗi lắng nghe NAV: ", error)
+        );
+
+        // 4. Transaction Log Listener (KHÔNG ĐỔI)
+        const txQuery = query(txCollectionRef);
+        txUnsubscribe = onSnapshot(
+          txQuery,
+          (querySnapshot) => {
+            const txLogs = [];
+            querySnapshot.forEach((doc) => {
+              txLogs.push({ id: doc.id, ...doc.data() });
+            });
+            txLogs.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+            renderTxTable(txLogs);
+          },
+          (error) => console.error("Lỗi lắng nghe giao dịch: ", error)
+        );
+
+        // 5. Risk Log Listener (KHÔNG ĐỔI)
+        const riskQuery = query(riskCollectionRef);
+        riskUnsubscribe = onSnapshot(
+          riskQuery,
+          (querySnapshot) => {
+            const riskLogs = [];
+            querySnapshot.forEach((doc) => {
+              riskLogs.push({ id: doc.id, ...doc.data() });
+            });
+            riskLogs.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+            renderRiskTable(riskLogs);
+          },
+          (error) => console.error("Lỗi lắng nghe rủi ro: ", error)
+        );
+
+        // 6. MỚI: Portfolio Listener
+        const portfolioQuery = query(portfolioCollectionRef);
+        portfolioUnsubscribe = onSnapshot(
+          portfolioQuery,
+          (querySnapshot) => {
+            currentPortfolio = [];
+            querySnapshot.forEach((doc) => {
+              currentPortfolio.push({ id: doc.id, ...doc.data() });
+            });
+            // Sắp xếp theo tên token
+            currentPortfolio.sort((a, b) => a.id.localeCompare(b.id));
+            fetchPricesAndCalculateNAV(); // Tự động tính NAV và render bảng
+          },
+          (error) => console.error("Lỗi lắng nghe danh mục: ", error)
+        );
+      }
+
+      // --- MỚI: PORTFOLIO, NAV & CHART FUNCTIONS ---
+
+      // Mới: Lấy giá và tính toán
+      async function fetchPricesAndCalculateNAV() {
+        const coingeckoIds = currentPortfolio
+          .map((asset) => asset.coingeckoId)
+          .filter((id) => id); // Lọc ra những asset có coingeckoId
+
+        let prices = {};
+        if (coingeckoIds.length > 0) {
+          try {
+            const response = await fetch(
+              `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoIds.join(
+                ","
+              )}&vs_currencies=vnd`
+            );
+            if (!response.ok) throw new Error("Không thể tải giá từ CoinGecko");
+            const priceData = await response.json();
+            // { "bitcoin": { "vnd": 1000000 }, "ethereum": { "vnd": 50000 } }
+            for (const id in priceData) {
+              prices[id] = priceData[id].vnd;
+            }
+          } catch (error) {
+            console.error(error);
+            showModal("Lỗi: " + error.message);
+          }
+        }
+
+        // Tính toán tổng giá trị
+        let totalNav = 0;
+        const portfolioWithValues = currentPortfolio.map((asset) => {
+          let price = 0;
+          if (asset.customPrice) {
+            price = asset.customPrice;
+          } else if (asset.coingeckoId && prices[asset.coingeckoId]) {
+            price = prices[asset.coingeckoId];
+          }
+
+          const totalValue = asset.amount * price;
+          totalNav += totalValue;
+
+          return { ...asset, price, totalValue };
+        });
+
+        currentTotalNav = totalNav; // Lưu NAV tổng
+
+        // Render bảng và chart
+        renderPortfolioTable(portfolioWithValues);
+        renderPortfolioChart(portfolioWithValues);
+
+        // Cập nhật hiển thị
+        totalNavDisplay.textContent = formatCurrency(totalNav);
+        lastPriceUpdate.textContent = `Giá cập nhật lúc: ${new Date().toLocaleTimeString(
+          "vi-VN"
+        )}`;
+      }
+
+      // Mới: Render Bảng danh mục
+      function renderPortfolioTable(portfolioWithValues) {
+        portfolioHoldingsTable.innerHTML = "";
+        if (portfolioWithValues.length === 0) {
+          portfolioHoldingsTable.innerHTML =
+            '<tr><td colspan="5" class="p-4 text-center text-gray-500">Chưa có tài sản.</td></tr>';
+          return;
+        }
+
+        portfolioWithValues.forEach((asset) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-white">${
+                          asset.id
+                        }</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">${
+                          asset.amount
+                        }</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">${formatCurrency(
+                          asset.price
+                        )}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-white">${formatCurrency(
+                          asset.totalValue
+                        )}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">
+                            <button class="delete-btn text-red-500 hover:text-red-700 transition-colors" data-id="${
+                              asset.id
+                            }" data-type="portfolio">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    `;
+          portfolioHoldingsTable.appendChild(row);
+        });
+        lucide.createIcons();
+      }
+
+      // Mới: Render Biểu đồ tròn
+      function renderPortfolioChart(portfolioWithValues) {
+        if (portfolioChart) {
+          portfolioChart.destroy(); // Xóa chart cũ
+        }
+
+        const labels = portfolioWithValues.map((asset) => asset.id);
+        const data = portfolioWithValues.map((asset) => asset.totalValue);
+
+        portfolioChart = new Chart(portfolioPieChartCanvas, {
+          type: "pie",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Giá trị (VND)",
+                data: data,
+                backgroundColor: [
+                  "#3B82F6",
+                  "#10B981",
+                  "#F59E0B",
+                  "#EF4444",
+                  "#8B5CF6",
+                  "#EC4899",
+                  "#6366F1",
+                  "#F97316",
+                  "#06B6D4",
+                  "#D946EF",
+                ],
+                hoverOffset: 4,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "top",
+                labels: {
+                  color: "#e2e8f0", // slate-200
+                },
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    let label = context.label || "";
+                    if (label) {
+                      label += ": ";
+                    }
+                    if (context.parsed !== null) {
+                      label += formatCurrency(context.parsed);
+                    }
+                    return label;
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+
+      // MỚI: Render Biểu đồ đường Lịch sử NAV
+      function renderNavLineChart(navLogs) {
+        if (navLineChart) {
+          navLineChart.destroy(); // Xóa chart cũ
+        }
+
+        // Sắp xếp lại: Cũ nhất -> Mới nhất cho biểu đồ đường
+        const sortedLogs = [...navLogs].sort(
+          (a, b) => a.date.toMillis() - b.date.toMillis()
+        );
+
+        const labels = sortedLogs.map((log) => formatDate(log.date));
+        const data = sortedLogs.map(
+          (log) => (log.assetValue || 0) - (log.liabilities || 0)
+        );
+
+        navLineChart = new Chart(navLineChartCanvas, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "NAV (VND)",
+                data: data,
+                fill: true, // Thêm fill
+                borderColor: "#60a5fa", // blue-400
+                backgroundColor: "rgba(96, 165, 250, 0.1)", // blue-400/10
+                tension: 0.1, // Hơi uốn lượn
+                pointBackgroundColor: "#60a5fa", // blue-400
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                display: false, // Ẩn legend vì chỉ có 1 dataset
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    return `NAV: ${formatCurrency(context.parsed.y)}`;
+                  },
+                },
+              },
+            },
+            scales: {
+              y: {
+                ticks: {
+                  callback: function (value) {
+                    return formatCurrency(value);
+                  },
+                  color: "#94a3b8", // slate-400
+                },
+                grid: {
+                  color: "#334155", // slate-700
+                },
+              },
+              x: {
+                ticks: {
+                  color: "#94a3b8", // slate-400
+                },
+                grid: {
+                  display: false,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      // --- MỚI: EXCEL EXPORT FUNCTION ---
+      async function exportToExcel() {
+        if (!teamId) {
+          showModal("Vui lòng tham gia không gian làm việc trước khi xuất.");
+          return;
+        }
+
+        showLoading("Đang tổng hợp dữ liệu để xuất Excel...");
+
+        try {
+          const wb = XLSX.utils.book_new();
+          const readableTeamId =
+            teamIdInput.value.trim().replace(/[^a-zA-Z0-9-]/g, "_") || teamId;
+
+          // --- Sheet 1: Thiết kế Quỹ ---
+          const ws1_data = [
+            ["BÁO CÁO THIẾT KẾ QUỸ"],
+            [], // Dòng trống
+            ["Tên quỹ:", document.getElementById("fund-name").value],
+            ["Mục tiêu:", document.getElementById("fund-objective").value],
+            ["Chiến lược:", document.getElementById("fund-strategy").value],
+            [
+              "Tài sản được phép:",
+              document.getElementById("fund-assets").value,
+            ],
+            ["Cơ cấu nhóm:", document.getElementById("fund-team").value],
+          ];
+          const ws1 = XLSX.utils.aoa_to_sheet(ws1_data);
+          ws1["!cols"] = [{ wch: 20 }, { wch: 80 }]; // Set column widths
+          // Style cơ bản (in đậm ô tiêu đề)
+          if (ws1["A1"]) ws1["A1"].s = { font: { bold: true } };
+          XLSX.utils.book_append_sheet(wb, ws1, "1. Thiet ke Quy");
+
+          // --- Sheet 2: Danh mục & NAV ---
+          // Dữ liệu đã có trong 'currentPortfolio' và 'currentTotalNav'
+          const ws2_data = [
+            ["DANH MỤC & NAV HIỆN TẠI"],
+            [],
+            ["Tài sản", "Số lượng", "Giá (VND)", "Tổng (VND)"],
+          ];
+          // SỬA LỖI: Xóa các dòng style áp dụng cho ws2_data
+
+          // Lấy giá trị đã tính toán (fetchPricesAndCalculateNAV đã chạy)
+          const portfolioWithValues = currentPortfolio.map((asset) => {
+            let price = 0;
+            if (asset.customPrice) {
+              price = asset.customPrice;
+            } else {
+              // Tìm giá đã fetch trong currentPortfolio (đã được thêm vào)
+              const matchingAsset = currentPortfolio.find(
+                (p) => p.id === asset.id
+              );
+              if (matchingAsset && matchingAsset.price) {
+                price = matchingAsset.price;
+              }
+            }
+            const totalValue = asset.amount * price;
+            return { ...asset, price, totalValue };
+          });
+
+          portfolioWithValues.forEach((asset) => {
+            ws2_data.push([
+              asset.id, // Tên tài sản (A)
+              asset.amount, // Số lượng (B)
+              asset.price, // Giá (C)
+              asset.totalValue, // Tổng (D)
+            ]);
+          });
+
+          ws2_data.push([]); // Dòng trống
+          ws2_data.push(["", "", "TỔNG NAV:", currentTotalNav]);
+
+          const ws2 = XLSX.utils.aoa_to_sheet(ws2_data);
+          // SỬA LỖI: Áp dụng style cho worksheet (ws2), không phải data array (ws2_data)
+          if (ws2["A1"]) ws2["A1"].s = { font: { bold: true } }; // Tiêu đề
+          if (ws2["A3"]) ws2["A3"].s = { font: { bold: true } }; // Header Tài sản
+          if (ws2["B3"]) ws2["B3"].s = { font: { bold: true } }; // Header Số lượng
+          if (ws2["C3"]) ws2["C3"].s = { font: { bold: true } }; // Header Giá
+          if (ws2["D3"]) ws2["D3"].s = { font: { bold: true } }; // Header Tổng
+
+          ws2["!cols"] = [{ wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 25 }];
+          // Format
+          const range = XLSX.utils.decode_range(ws2["!ref"]);
+          for (let R = 3; R <= range.e.r; ++R) {
+            const cellB = ws2[XLSX.utils.encode_cell({ c: 1, r: R })]; // Số lượng
+            const cellC = ws2[XLSX.utils.encode_cell({ c: 2, r: R })]; // Giá
+            const cellD = ws2[XLSX.utils.encode_cell({ c: 3, r: R })]; // Tổng
+
+            if (cellB) {
+              cellB.t = "n";
+              cellB.z = "#,##0.00";
+            }
+            if (cellC) {
+              cellC.t = "n";
+              cellC.z = "#,##0";
+            }
+            if (cellD) {
+              cellD.t = "n";
+              cellD.z = "#,##0";
+            }
+          }
+          const totalNavCell =
+            ws2[XLSX.utils.encode_cell({ c: 3, r: range.e.r })];
+          const totalNavLabel =
+            ws2[XLSX.utils.encode_cell({ c: 2, r: range.e.r })];
+          if (totalNavCell) {
+            totalNavCell.t = "n";
+            totalNavCell.z = '#,##0 "VND"';
+            totalNavCell.s = { font: { bold: true } };
+          }
+          if (totalNavLabel) {
+            totalNavLabel.s = { font: { bold: true } };
+          }
+          XLSX.utils.book_append_sheet(wb, ws2, "2. Danh muc & NAV");
+
+          // --- Sheet 3: Lịch sử NAV ---
+          const ws3_data = [
+            ["LỊCH SỬ SNAPSHOT NAV"],
+            [],
+            ["Ngày Snapshot", "Tổng Tài sản", "Tổng Nợ", "NAV"],
+          ];
+          // SỬA LỖI: Xóa các dòng style áp dụng cho ws3_data
+
+          const navSnap = await getDocs(query(navCollectionRef));
+          const navLogs = [];
+          navSnap.forEach((doc) => navLogs.push(doc.data()));
+          navLogs.sort((a, b) => a.date.toMillis() - b.date.toMillis()); // Sắp xếp cũ -> mới
+
+          navLogs.forEach((log) => {
+            const nav = (log.assetValue || 0) - (log.liabilities || 0);
+            ws3_data.push([
+              formatDate(log.date),
+              log.assetValue || 0,
+              log.liabilities || 0,
+              nav,
+            ]);
+          });
+          const ws3 = XLSX.utils.aoa_to_sheet(ws3_data);
+          // SỬA LỖI: Áp dụng style cho worksheet (ws3)
+          if (ws3["A1"]) ws3["A1"].s = { font: { bold: true } }; // Tiêu đề
+          if (ws3["A3"]) ws3["A3"].s = { font: { bold: true } }; // Header
+          if (ws3["B3"]) ws3["B3"].s = { font: { bold: true } }; // Header
+          if (ws3["C3"]) ws3["C3"].s = { font: { bold: true } }; // Header
+          if (ws3["D3"]) ws3["D3"].s = { font: { bold: true } }; // Header
+
+          ws3["!cols"] = [{ wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 }];
+          // Format
+          const range3 = XLSX.utils.decode_range(ws3["!ref"]);
+          for (let R = 3; R <= range3.e.r; ++R) {
+            const cellB = ws3[XLSX.utils.encode_cell({ c: 1, r: R })];
+            const cellC = ws3[XLSX.utils.encode_cell({ c: 2, r: R })];
+            const cellD = ws3[XLSX.utils.encode_cell({ c: 3, r: R })];
+            if (cellB) {
+              cellB.t = "n";
+              cellB.z = "#,##0";
+            }
+            if (cellC) {
+              cellC.t = "n";
+              cellC.z = "#,##0";
+            }
+            if (cellD) {
+              cellD.t = "n";
+              cellD.z = "#,##0";
+            }
+          }
+          XLSX.utils.book_append_sheet(wb, ws3, "3. Lich su NAV");
+
+          // --- Sheet 4: Nhật ký Giao dịch ---
+          const ws4_data = [
+            ["NHẬT KÝ GIAO DỊCH"],
+            [],
+            [
+              "Thời gian",
+              "Loại",
+              "Tài sản",
+              "Số lượng",
+              "Giá (VND)",
+              "Phí (VND)",
+              "Ghi chú",
+            ],
+          ];
+          // SỬA LỖI: Xóa các dòng style áp dụng cho ws4_data
+
+          const txSnap = await getDocs(query(txCollectionRef));
+          const txLogs = [];
+          txSnap.forEach((doc) => txLogs.push(doc.data()));
+          txLogs.sort((a, b) => a.date.toMillis() - b.date.toMillis()); // Sắp xếp cũ -> mới
+
+          txLogs.forEach((log) => {
+            ws4_data.push([
+              formatDateTime(log.date),
+              log.type,
+              log.asset,
+              log.amount,
+              log.price || 0,
+              log.fee || 0, // MỚI
+              log.notes,
+            ]);
+          });
+          const ws4 = XLSX.utils.aoa_to_sheet(ws4_data);
+          // SỬA LỖI: Áp dụng style cho worksheet (ws4)
+          if (ws4["A1"]) ws4["A1"].s = { font: { bold: true } }; // Tiêu đề
+          if (ws4["A3"]) ws4["A3"].s = { font: { bold: true } }; // Header
+          if (ws4["B3"]) ws4["B3"].s = { font: { bold: true } }; // Header
+          if (ws4["C3"]) ws4["C3"].s = { font: { bold: true } }; // Header
+          if (ws4["D3"]) ws4["D3"].s = { font: { bold: true } }; // Header
+          if (ws4["E3"]) ws4["E3"].s = { font: { bold: true } }; // Header
+          if (ws4["F3"]) ws4["F3"].s = { font: { bold: true } }; // Header (MỚI)
+          if (ws4["G3"]) ws4["G3"].s = { font: { bold: true } }; // Header (trước là F3)
+
+          ws4["!cols"] = [
+            { wch: 20 },
+            { wch: 15 },
+            { wch: 15 },
+            { wch: 15 },
+            { wch: 20 },
+            { wch: 15 },
+            { wch: 40 },
+          ]; // MỚI: Thêm { wch: 15 }
+          // Format
+          const range4 = XLSX.utils.decode_range(ws4["!ref"]);
+          for (let R = 3; R <= range4.e.r; ++R) {
+            const cellD = ws4[XLSX.utils.encode_cell({ c: 3, r: R })]; // Số lượng
+            const cellE = ws4[XLSX.utils.encode_cell({ c: 4, r: R })]; // Giá
+            const cellF = ws4[XLSX.utils.encode_cell({ c: 5, r: R })]; // Phí (MỚI)
+            if (cellD) {
+              cellD.t = "n";
+              cellD.z = "#,##0.00";
+            }
+            if (cellE) {
+              cellE.t = "n";
+              cellE.z = "#,##0";
+            }
+            if (cellF) {
+              cellF.t = "n";
+              cellF.z = "#,##0";
+            } // MỚI
+          }
+          XLSX.utils.book_append_sheet(wb, ws4, "4. Nhat ky Giao dich");
+
+          // --- Sheet 5: Quản trị Rủi ro ---
+          const ws5_data = [
+            ["NHẬT KÝ QUẢN TRỊ RỦI RO"],
+            [],
+            ["Ngày", "Tình huống", "Phản ứng"],
+          ];
+          // SỬA LỖI: Xóa các dòng style áp dụng cho ws5_data
+
+          const riskSnap = await getDocs(query(riskCollectionRef));
+          const riskLogs = [];
+          riskSnap.forEach((doc) => riskLogs.push(doc.data()));
+          riskLogs.sort((a, b) => a.date.toMillis() - b.date.toMillis()); // Sắp xếp cũ -> mới
+
+          riskLogs.forEach((log) => {
+            ws5_data.push([formatDate(log.date), log.scenario, log.response]);
+          });
+          const ws5 = XLSX.utils.aoa_to_sheet(ws5_data);
+          // SỬA LỖI: Áp dụng style cho worksheet (ws5)
+          if (ws5["A1"]) ws5["A1"].s = { font: { bold: true } }; // Tiêu đề
+          if (ws5["A3"]) ws5["A3"].s = { font: { bold: true } }; // Header
+          if (ws5["B3"]) ws5["B3"].s = { font: { bold: true } }; // Header
+          if (ws5["C3"]) ws5["C3"].s = { font: { bold: true } }; // Header
+
+          ws5["!cols"] = [{ wch: 15 }, { wch: 50 }, { wch: 80 }];
+          XLSX.utils.book_append_sheet(wb, ws5, "5. Quan tri Rui ro");
+
+          // --- Sheet 6: Hồ sơ & Tài liệu ---
+          const ws6_data = [
+            ["HỒ SƠ & TÀI LIỆU"],
+            [],
+            ["Hợp đồng quản lý quỹ:"],
+            [document.getElementById("doc-contract").value],
+            [],
+            ["Báo cáo tổng hợp:"],
+            [document.getElementById("doc-summary").value],
+            [],
+            ["Báo cáo phân tích rủi ro:"],
+            [document.getElementById("doc-risk-analysis").value],
+            [],
+            ["Link Slide:"],
+            [document.getElementById("doc-slides").value],
+            [],
+            ["Phụ lục:"],
+            [document.getElementById("doc-appendix").value],
+          ];
+          const ws6 = XLSX.utils.aoa_to_sheet(ws6_data);
+          ws6["!cols"] = [{ wch: 100 }];
+          // Style
+          if (ws6["A1"]) ws6["A1"].s = { font: { bold: true } };
+          if (ws6["A3"]) ws6["A3"].s = { font: { bold: true } };
+          if (ws6["A5"]) ws6["A5"].s = { font: { bold: true } };
+          if (ws6["A7"]) ws6["A7"].s = { font: { bold: true } };
+          if (ws6["A9"]) ws6["A9"].s = { font: { bold: true } };
+          if (ws6["A11"]) ws6["A11"].s = { font: { bold: true } };
+          XLSX.utils.book_append_sheet(wb, ws6, "6. Ho so Tai lieu");
+
+          // --- Download File ---
+          XLSX.writeFile(wb, `BaoCaoQuy_${readableTeamId}.xlsx`);
+
+          hideLoading();
+        } catch (error) {
+          console.error("Lỗi xuất Excel: ", error);
+          hideLoading();
+          showModal(`Lỗi xuất file: ${error.message}`);
+        }
+      }
+
+      // --- DATA RENDERING (CHO CÁC TAB KHÁC) ---
+
+      // Render NAV History Table (Đổi tên từ renderNavTable)
+      function renderNavHistoryTable(navLogs) {
+        navHistoryTable.innerHTML = "";
+        if (navLogs.length === 0) {
+          navHistoryTable.innerHTML =
+            '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">Chưa có dữ liệu snapshot NAV.</td></tr>';
+          return;
+        }
+        navLogs.forEach((log) => {
+          const nav = (log.assetValue || 0) - (log.liabilities || 0);
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">${formatDate(
+                          log.date
+                        )}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${formatCurrency(
+                          log.assetValue
+                        )}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${formatCurrency(
+                          log.liabilities
+                        )}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-400">${formatCurrency(
+                          nav
+                        )}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <button class="delete-btn text-red-500 hover:text-red-700 transition-colors" data-id="${
+                              log.id
+                            }" data-type="nav">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    `;
+          navHistoryTable.appendChild(row);
+        });
+        lucide.createIcons();
+      }
+
+      // Render Transaction Table (KHÔNG ĐỔI)
+      function renderTxTable(txLogs) {
+        txLogTable.innerHTML = "";
+        if (txLogs.length === 0) {
+          txLogTable.innerHTML =
+            '<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">Chưa có giao dịch nào.</td></tr>'; // Sửa colspan="8"
+          return;
+        }
+        txLogs.forEach((log) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-white">${formatDateTime(
+                          log.date
+                        )}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">${
+                          log.type || ""
+                        }</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">${
+                          log.asset || ""
+                        }</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">${
+                          log.amount || 0
+                        }</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">${formatCurrency(
+                          log.price || 0
+                        )}</td>
+                        <!-- MỚI: Thêm cột Phí (màu đỏ) -->
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-red-400">${formatCurrency(
+                          log.fee || 0
+                        )}</td>
+                        <td class="px-4 py-3 text-sm text-gray-400 truncate max-w-xs">${
+                          log.notes || ""
+                        }</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                            <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2 transition-colors" data-id="${
+                              log.id
+                            }" data-type="tx">
+                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                            </button>
+                            <button class="delete-btn text-red-500 hover:text-red-700 transition-colors" data-id="${
+                              log.id
+                            }" data-type="tx">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    `;
+          txLogTable.appendChild(row);
+        });
+        lucide.createIcons();
+      }
+
+      // Render Risk Table (KHÔNG ĐỔI)
+      function renderRiskTable(riskLogs) {
+        riskLogTable.innerHTML = "";
+        if (riskLogs.length === 0) {
+          riskLogTable.innerHTML =
+            '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Chưa ghi nhận rủi ro.</td></tr>';
+          return;
+        }
+        riskLogs.forEach((log) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-white">${formatDate(
+                          log.date
+                        )}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">${
+                          log.scenario || ""
+                        }</td>
+                        <td class="px-4 py-3 text-sm text-gray-300">${
+                          log.response || ""
+                        }</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">
+                            <button class="delete-btn text-red-500 hover:text-red-700 transition-colors" data-id="${
+                              log.id
+                            }" data-type="risk">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    `;
+          riskLogTable.appendChild(row);
+        });
+        lucide.createIcons();
+      }
+
+      // Calculate Performance (KHÔNG ĐỔI)
+      // Vẫn dùng dữ liệu từ 'navLogs' (các bản snapshot)
+      function calculatePerformance(navLogs) {
+        if (navLogs.length === 0) {
+          perfInitialNav.textContent = "0";
+          perfCurrentNav.textContent = "0";
+          perfPercentage.textContent = "0.00%";
+          perfPercentage.className = "text-2xl font-bold text-gray-300";
+          return;
+        }
+
+        const initialLog = navLogs[navLogs.length - 1];
+        const currentLog = navLogs[0];
+
+        const initialNAV =
+          (initialLog.assetValue || 0) - (initialLog.liabilities || 0);
+        const currentNAV =
+          (currentLog.assetValue || 0) - (currentLog.liabilities || 0);
+
+        perfInitialNav.textContent = formatCurrency(initialNAV);
+        perfCurrentNav.textContent = formatCurrency(currentNAV);
+
+        if (initialNAV === 0) {
+          perfPercentage.textContent = "N/A";
+          perfPercentage.className = "text-2xl font-bold text-gray-300";
+          return;
+        }
+
+        const performance = ((currentNAV - initialNAV) / initialNAV) * 100;
+        perfPercentage.textContent = `${performance.toFixed(2)}%`;
+
+        if (performance > 0) {
+          perfPercentage.className = "text-2xl font-bold text-green-600";
+        } else if (performance < 0) {
+          perfPercentage.className = "text-2xl font-bold text-red-500";
+        } else {
+          perfPercentage.className = "text-2xl font-bold text-gray-300";
+        }
+      }
+
+      // --- EVENT HANDLERS FOR SAVING DATA ---
+
+      // Save Fund Design (KHÔNG ĐỔI)
+      formFundDesign.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const data = {
+          name: document.getElementById("fund-name").value,
+          objective: document.getElementById("fund-objective").value,
+          strategy: document.getElementById("fund-strategy").value,
+          assets: document.getElementById("fund-assets").value,
+          team: document.getElementById("fund-team").value,
+        };
+        try {
+          showLoading("Đang lưu thiết kế quỹ...");
+          await setDoc(fundDetailsRef, data, { merge: true });
+          hideLoading();
+          showModal("Đã lưu thông tin quỹ thành công!");
+        } catch (error) {
+          console.error("Lỗi lưu thiết kế quỹ: ", error);
+          hideLoading();
+          showModal(`Lỗi: ${error.message}`);
+        }
+      });
+
+      // Save Documents (auto-save on blur) (KHÔNG ĐỔI)
+      docFields.forEach((field) => {
+        field.addEventListener("blur", async (e) => {
+          const key = e.target.id.split("-")[1];
+          const fieldMap = {
+            contract: "contract",
+            summary: "summary",
+            riskanalysis: "riskAnalysis",
+            slides: "slides",
+            appendix: "appendix",
+          };
+          const dbKey = fieldMap[key];
+          if (dbKey) {
+            try {
+              showLoading("Đang lưu tài liệu...");
+              await setDoc(
+                fundDocumentsRef,
+                { [dbKey]: e.target.value },
+                { merge: true }
+              );
+              hideLoading();
+            } catch (error) {
+              console.error("Lỗi lưu tài liệu: ", error);
+              hideLoading();
+              showModal(`Lỗi tự động lưu: ${error.message}`);
+            }
+          }
+        });
+      });
+
+      // MỚI: Thêm/Cập nhật Tài sản Danh mục
+      formPortfolioAsset.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const token = document
+          .getElementById("asset-token")
+          .value.toUpperCase()
+          .trim();
+        const amount = parseFloat(
+          document.getElementById("asset-amount").value
+        );
+        const coingeckoId =
+          document
+            .getElementById("asset-coingecko-id")
+            .value.trim()
+            .toLowerCase() || null;
+        const customPrice =
+          parseFloat(document.getElementById("asset-custom-price").value) ||
+          null;
+
+        if (!token) {
+          showModal("Vui lòng nhập Tên Token.");
+          return;
+        }
+        if (isNaN(amount)) {
+          showModal("Vui lòng nhập Số lượng hợp lệ.");
+          return;
+        }
+        if (!coingeckoId && !customPrice) {
+          showModal("Vui lòng nhập CoinGecko ID hoặc Giá tùy chỉnh.");
+          return;
+        }
+
+        const data = {
+          amount: amount,
+          coingeckoId: coingeckoId,
+          customPrice: customPrice,
+        };
+
+        try {
+          showLoading("Đang cập nhật danh mục...");
+          // Dùng Tên Token làm ID tài liệu để dễ dàng cập nhật
+          const assetRef = doc(portfolioCollectionRef, token);
+          await setDoc(assetRef, data);
+          formPortfolioAsset.reset();
+          hideLoading();
+        } catch (error) {
+          console.error("Lỗi cập nhật tài sản: ", error);
+          hideLoading();
+          showModal(`Lỗi: ${error.message}`);
+        }
+      });
+
+      // MỚI: Lưu Snapshot NAV
+      saveNavSnapshotBtn.addEventListener("click", async () => {
+        // MỚI: Lấy giá trị từ ô nhập nợ/phí
+        const liabilities =
+          parseFloat(document.getElementById("snapshot-liabilities").value) ||
+          0;
+
+        const data = {
+          date: Timestamp.now(), // Lưu ngày giờ hiện tại
+          assetValue: currentTotalNav, // Lấy NAV tự động tính
+          liabilities: liabilities, // MỚI: Dùng giá trị nhập vào, thay vì 0
+          createdAt: Timestamp.now(),
+        };
+
+        try {
+          showLoading("Đang lưu snapshot NAV...");
+          await addDoc(navCollectionRef, data);
+          // MỚI: Xóa trường nhập liệu sau khi lưu
+          document.getElementById("snapshot-liabilities").value = "";
+          hideLoading();
+          showModal("Đã lưu snapshot NAV thành công vào Lịch sử.");
+        } catch (error) {
+          console.error("Lỗi lưu snapshot: ", error);
+          hideLoading();
+          showModal(`Lỗi: ${error.message}`);
+        }
+      });
+
+      // Add Transaction Log (ĐÃ NÂNG CẤP)
+      formTxLog.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        // Lấy dữ liệu từ form
+        const type = document.getElementById("tx-type").value;
+        const asset = document
+          .getElementById("tx-asset")
+          .value.toUpperCase()
+          .trim();
+        const amount = parseFloat(document.getElementById("tx-amount").value);
+        let price = parseFloat(document.getElementById("tx-price").value) || 0;
+        const notes = document.getElementById("tx-notes").value;
+        const coingeckoId =
+          document
+            .getElementById("tx-coingecko-id")
+            .value.trim()
+            .toLowerCase() || null;
+        const autoUpdate = document.getElementById("tx-auto-update").checked;
+        const fee = parseFloat(document.getElementById("tx-fee").value) || 0; // MỚI
+
+        if (!asset || isNaN(amount) || amount <= 0) {
+          showModal("Vui lòng nhập Tài sản và Số lượng hợp lệ (lớn hơn 0).");
+          return;
+        }
+
+        showLoading("Đang xử lý giao dịch...");
+
+        try {
+          // 1. Tự động lấy giá nếu có Coingecko ID
+          if (coingeckoId) {
+            try {
+              const response = await fetch(
+                `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=vnd`
+              );
+              if (!response.ok)
+                throw new Error("Không thể tải giá từ CoinGecko");
+              const priceData = await response.json();
+              const fetchedPrice = priceData[coingeckoId]?.vnd;
+              if (fetchedPrice) {
+                price = fetchedPrice; // Ghi đè giá nhập tay nếu lấy được giá
+              }
+            } catch (priceError) {
+              console.error("Lỗi lấy giá: ", priceError);
+              showModal(
+                `Lỗi lấy giá: ${priceError.message}. Giao dịch sẽ được lưu với giá 0 hoặc giá nhập tay.`
+              );
+            }
+          }
+
+          // 2. Chuẩn bị dữ liệu giao dịch
+          const data = {
+            date: Timestamp.now(), // Luôn dùng thời gian thực
+            type: type,
+            asset: asset,
+            amount: amount,
+            price: price,
+            fee: fee, // MỚI
+            notes: notes,
+            coingeckoId: coingeckoId,
+            // createdAt sẽ được thêm nếu là giao dịch mới
+          };
+
+          // 3. Xử lý Chỉnh sửa hoặc Thêm mới
+          if (editingTxId) {
+            // --- CHẾ ĐỘ CẬP NHẬT ---
+            const txDocRef = doc(txCollectionRef, editingTxId);
+            await updateDoc(txDocRef, data);
+
+            hideLoading();
+            showModal("Đã cập nhật giao dịch thành công!");
+            resetTxForm();
+          } else {
+            // --- CHẾ ĐỘ THÊM MỚI ---
+            data.createdAt = Timestamp.now();
+            await addDoc(txCollectionRef, data);
+
+            let portfolioMessage = "Đã ghi lại giao dịch!";
+
+            // 4. Tự động cập nhật Danh mục (Tab 2) nếu được chọn
+            if (autoUpdate) {
+              const portfolioDocRef = doc(portfolioCollectionRef, asset);
+              const portfolioDocSnap = await getDoc(portfolioDocRef);
+              const currentAmount = portfolioDocSnap.exists()
+                ? portfolioDocSnap.data().amount
+                : 0;
+
+              let newAmount = currentAmount;
+              if (
+                type === "Mua (Buy)" ||
+                type === "Nạp tiền (Deposit)" ||
+                type === "Unstake"
+              ) {
+                newAmount = currentAmount + amount;
+              } else if (
+                type === "Bán (Sell)" ||
+                type === "Rút tiền (Withdraw)" ||
+                type === "Staking"
+              ) {
+                newAmount = currentAmount - amount;
+              }
+
+              if (newAmount < 0) {
+                newAmount = 0; // Không để số lượng âm
+              }
+
+              const portfolioData = { amount: newAmount };
+
+              // Nếu là tài sản mới, tự động thêm thông tin giá
+              if (
+                !portfolioDocSnap.exists() &&
+                (type === "Mua (Buy)" || type === "Nạp tiền (Deposit)")
+              ) {
+                if (!coingeckoId && price <= 0) {
+                  portfolioMessage +=
+                    " CẢNH BÁO: Danh mục không được cập nhật vì đây là tài sản mới và không có Coingecko ID hoặc Giá tùy chỉnh.";
+                } else {
+                  portfolioData.coingeckoId = coingeckoId;
+                  if (!coingeckoId) {
+                    portfolioData.customPrice = price; // Dùng giá giao dịch làm giá tùy chỉnh
+                  }
+                  await setDoc(portfolioDocRef, portfolioData, { merge: true });
+                  portfolioMessage += " Danh mục đã được cập nhật.";
+                }
+              } else {
+                // Cập nhật tài sản đã tồn tại
+                await setDoc(portfolioDocRef, portfolioData, { merge: true });
+                portfolioMessage += " Danh mục đã được cập nhật.";
+              }
+            }
+
+            hideLoading();
+            showModal(portfolioMessage);
+            resetTxForm();
+          }
+        } catch (error) {
+          console.error("Lỗi xử lý giao dịch: ", error);
+          hideLoading();
+          showModal(`Lỗi: ${error.message}`);
+        }
+      });
+
+      // Add Risk Log (KHÔNG ĐỔI)
+      formRiskLog.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const data = {
+          date: Timestamp.fromDate(
+            new Date(document.getElementById("risk-date").value)
+          ),
+          scenario: document.getElementById("risk-scenario").value,
+          response: document.getElementById("risk-response").value,
+          createdAt: Timestamp.now(),
+        };
+        try {
+          showLoading("Đang thêm rủi ro...");
+          await addDoc(riskCollectionRef, data);
+          formRiskLog.reset();
+          setTodaysDate();
+          hideLoading();
+        } catch (error) {
+          console.error("Lỗi thêm rủi ro: ", error);
+          hideLoading();
+          showModal(`Lỗi: ${error.message}`);
+        }
+      });
+
+      // --- DELETE HANDLER (CẬP NHẬT) ---
+      document.body.addEventListener("click", async (e) => {
+        const deleteBtn = e.target.closest(".delete-btn");
+        const editBtn = e.target.closest(".edit-btn"); // Mới
+
+        if (deleteBtn) {
+          const id = deleteBtn.dataset.id;
+          const type = deleteBtn.dataset.type;
+
+          let docRef;
+          if (type === "nav") {
+            docRef = doc(db, navCollectionRef.path, id);
+          } else if (type === "tx") {
+            docRef = doc(db, txCollectionRef.path, id);
+          } else if (type === "risk") {
+            docRef = doc(db, riskCollectionRef.path, id);
+          } else if (type === "portfolio") {
+            // Mới
+            docRef = doc(db, portfolioCollectionRef.path, id);
+          } else {
+            return;
+          }
+
+          // Mới: Thêm xác nhận trước khi xóa
+          // SỬA: Thay thế confirm() bằng modal tùy chỉnh
+          // if (!confirm("Bạn có chắc chắn muốn xóa mục này? Hành động này không thể hoàn tác.")) {
+          //     return;
+          // }
+          // NOTE: Vì không thể dùng confirm, chúng ta sẽ xóa trực tiếp.
+          // Trong một ứng dụng thực tế, chúng ta sẽ tạo một modal xác nhận.
+
+          try {
+            showLoading("Đang xóa...");
+            await deleteDoc(docRef);
+            hideLoading();
+          } catch (error) {
+            console.error("Lỗi xóa tài liệu: ", error);
+            hideLoading();
+            showModal(`Lỗi xóa: ${error.message}`);
+          }
+        }
+
+        // Mới: Xử lý nút Chỉnh sửa
+        if (editBtn) {
+          const id = editBtn.dataset.id;
+          const type = editBtn.dataset.type;
+
+          if (type === "tx") {
+            handleEditTransaction(id);
+          }
+          // (Có thể mở rộng cho các loại khác sau)
+        }
+      });
+
+      // --- TAB NAVIGATION (KHÔNG ĐỔI) ---
+      const tabButtons = document.querySelectorAll(".tab-button");
+      const tabContents = document.querySelectorAll(".tab-content");
+
+      function switchTab(tabId) {
+        tabContents.forEach((content) => {
+          content.classList.remove("active");
+        });
+        tabButtons.forEach((button) => {
+          button.classList.remove("active");
+        });
+
+        document.getElementById(tabId).classList.add("active");
+        document
+          .querySelector(`.tab-button[data-tab="${tabId}"]`)
+          .classList.add("active");
+      }
+
+      tabButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          switchTab(button.dataset.tab);
+        });
+      });
+
+      // --- ON LOAD (KHÔNG ĐỔI) ---
+      document.addEventListener("DOMContentLoaded", () => {
+        lucide.createIcons();
+        initializeFirebase();
+      });
+    </script>
+  </body>
+</html>
